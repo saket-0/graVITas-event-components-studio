@@ -41,6 +41,19 @@ function formatDate(v) {
   return `${String(d.getDate()).padStart(2, '0')} ${months[d.getMonth()]}`;
 }
 
+function parseDateParts(v) {
+  if (!v) return { day: '00', month: 'XXX', weekday: 'XXX' };
+  const d = new Date(v);
+  if (isNaN(d.getTime())) return { day: '00', month: 'XXX', weekday: 'XXX' };
+  const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+  const days = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+  return {
+    day: String(d.getDate()).padStart(2, '0'),
+    month: months[d.getMonth()],
+    weekday: days[d.getDay()]
+  };
+}
+
 // ── Font Management (pre-warming) ─────────────────────────────────
 
 let fontsWarmed = false;
@@ -50,6 +63,8 @@ async function warmFonts() {
   await Promise.all([
     figma.loadFontAsync({ family: 'Inter', style: 'Medium' }),
     figma.loadFontAsync({ family: 'Inter', style: 'Regular' }),
+    figma.loadFontAsync({ family: 'Inter', style: 'Bold' }),
+    figma.loadFontAsync({ family: 'Inter', style: 'Extra Bold' }),
   ]);
   fontsWarmed = true;
 }
@@ -110,55 +125,85 @@ async function createMaster(options) {
     if (existing && !existing.removed && existing.type === 'COMPONENT') return existing;
   }
   masterOptions = options;
-  const iconSize  = Math.max(12, Number(options.iconSize) || 25);
-  const gap       = Math.max(0,  Number(options.gap) || 6);
-  const titleSize = Math.max(4,  Number(options.titleSize) || 8);
-  const dateSize  = Math.max(4,  Number(options.dateSize) || 8);
-  const titleColor = options.titleColor || '#8FEAFF';
-  const dateColor  = options.dateColor || '#FFFFFF';
 
   const master = figma.createComponent();
   master.name = 'EVENT COMPONENT — MASTER';
   master.layoutMode = 'HORIZONTAL';
-  master.primaryAxisSizingMode = 'AUTO';
+  master.primaryAxisSizingMode = 'FIXED';
   master.counterAxisSizingMode = 'AUTO';
-  master.itemSpacing = gap;
-  master.paddingTop = 0; master.paddingRight = 0;
-  master.paddingBottom = 0; master.paddingLeft = 0;
-  master.fills = []; master.strokes = [];
+  master.resize(1600, 100);
+  master.itemSpacing = 41.44;
+  master.paddingTop = 37.7; master.paddingRight = 43.08;
+  master.paddingBottom = 37.7; master.paddingLeft = 43.08;
+  master.primaryAxisAlignItems = 'MIN';
+  master.counterAxisAlignItems = 'CENTER';
+
+  master.fills = [solid('#241D27', 0.28)];
+  master.strokes = [];
+  master.cornerRadius = 24.86;
   master.clipsContent = false;
+  
+  master.effects = [{
+    type: 'BACKGROUND_BLUR',
+    radius: 40,
+    visible: true
+  }];
+  
   master.x = 12; master.y = 0;
   master.setPluginData('role', 'master');
-  master.setPluginData('generator', 'gravitas-event-components-studio-v9');
+  master.setPluginData('generator', 'gravitas-event-components-studio-v10');
+
+  // Date Section (Horizontal)
+  const dateGroup = figma.createFrame();
+  master.appendChild(dateGroup);
+  dateGroup.name = 'Date Group';
+  dateGroup.layoutMode = 'HORIZONTAL';
+  dateGroup.primaryAxisSizingMode = 'AUTO';
+  dateGroup.counterAxisSizingMode = 'AUTO';
+  dateGroup.itemSpacing = 16;
+  dateGroup.fills = [];
+  dateGroup.counterAxisAlignItems = 'CENTER';
+
+  const bigDay = await makeText(dateGroup, '05', 120, '#FFFFFF', 'Extra Bold');
+  bigDay.name = 'Day Number';
+  
+  const monthDayGroup = figma.createFrame();
+  dateGroup.appendChild(monthDayGroup);
+  monthDayGroup.name = 'Month Day Group';
+  monthDayGroup.layoutMode = 'VERTICAL';
+  monthDayGroup.primaryAxisSizingMode = 'AUTO';
+  monthDayGroup.counterAxisSizingMode = 'AUTO';
+  monthDayGroup.itemSpacing = -10; // Tight stacking
+  monthDayGroup.fills = [];
+
+  const monthText = await makeText(monthDayGroup, 'SEP', 50, '#7C3AED', 'Extra Bold');
+  monthText.name = 'Month Name';
+  const weekdayText = await makeText(monthDayGroup, 'SAT', 50, '#FFFFFF', 'Medium');
+  weekdayText.name = 'Weekday';
+
+  // Separator
+  const separator = figma.createRectangle();
+  master.appendChild(separator);
+  separator.name = 'Separator';
+  separator.resize(4, 140);
+  separator.cornerRadius = 2;
+  separator.fills = [solid('#7C3AED', 1)];
 
   // Logo placeholder rectangle
   const logo = figma.createRectangle();
   master.appendChild(logo);
   logo.name = 'Event Logo';
-  logo.resize(iconSize, iconSize);
-  logo.cornerRadius = Math.min(3, iconSize / 4);
+  logo.resize(190, 190);
+  logo.cornerRadius = 20;
   logo.fills = [solid('#FFFFFF', 0.10)];
   logo.strokes = [];
   logo.setPluginData('role', 'logo');
 
-  // Text container (vertical auto-layout)
-  const copy = figma.createFrame();
-  master.appendChild(copy);
-  copy.name = 'Event Text';
-  copy.layoutMode = 'VERTICAL';
-  copy.primaryAxisSizingMode = 'AUTO';
-  copy.counterAxisSizingMode = 'AUTO';
-  copy.itemSpacing = 1;
-  copy.paddingTop = 0; copy.paddingRight = 0;
-  copy.paddingBottom = 0; copy.paddingLeft = 0;
-  copy.fills = []; copy.strokes = [];
-  copy.clipsContent = false;
-
-  const title = await makeText(copy, 'EVENT NAME', titleSize, titleColor, 'Medium');
+  // Event Title
+  const title = await makeText(master, 'EVENT NAME', 80, '#FFFFFF', 'Bold');
   title.name = 'Event Name';
-  const date = await makeText(copy, '01 JANUARY', dateSize, dateColor, 'Regular');
-  date.name = 'Date';
-
+  title.layoutAlign = 'INHERIT';
+  
   masterId = master.id;
   return master;
 }
@@ -179,23 +224,32 @@ async function createEventInstance(e, options, index) {
   instance.y = nextY;
 
   const title = findChild(instance, 'Event Name', 'TEXT');
-  const date  = findChild(instance, 'Date', 'TEXT');
+  const dateGroup = findChild(instance, 'Date Group', 'FRAME');
+  if (!dateGroup) throw new Error('Missing Date Group in master.');
+  const bigDay = findChild(dateGroup, 'Day Number', 'TEXT');
+  const monthDayGroup = findChild(dateGroup, 'Month Day Group', 'FRAME');
+  const monthText = findChild(monthDayGroup, 'Month Name', 'TEXT');
+  const weekdayText = findChild(monthDayGroup, 'Weekday', 'TEXT');
   const logo  = findChild(instance, 'Event Logo', 'RECTANGLE');
-  if (!title || !date || !logo) {
-    throw new Error('Master component structure is incomplete — expected Event Name, Date, and Event Logo children.');
+  
+  if (!title || !bigDay || !monthText || !weekdayText || !logo) {
+    throw new Error('Master component structure is incomplete.');
   }
 
-  await warmFonts(); // Already cached from session prep, this is a no-op
-  title.characters = String(e.event_name || '').replace(/\s+/g, ' ').trim().toUpperCase();
-  date.characters = formatDate(e.slot_start_datetime);
+  await warmFonts(); 
+
+  title.characters = String(e.event_name || '').replace(/\s+/g, ' ').trim();
+  const dateParts = parseDateParts(e.slot_start_datetime);
+  bigDay.characters = dateParts.day;
+  monthText.characters = dateParts.month;
+  weekdayText.characters = dateParts.weekday;
 
   title.setPluginData('event_index', String(index));
-  date.setPluginData('event_index', String(index));
   logo.setPluginData('event_index', String(index));
 
-  const h = Math.max(Number(options.iconSize) || 25, title.height + date.height + 1);
-  nextY += h + 10;
-  parent.resize(1000, Math.max(10, nextY));
+  const h = Math.max(265, instance.height);
+  nextY += h + 40;
+  parent.resize(1800, Math.max(10, nextY));
 
   instance.setPluginData('event_name', String(e.event_name || ''));
   instance.setPluginData('image_url', String(e.image_url || ''));

@@ -1,6 +1,6 @@
 {
-  "name": "GraVITas '26 — Event Components Studio v9",
-  "id": "gravitas-event-components-studio-v9",
+  "name": "GraVITas '26 — Glass Cards Studio",
+  "id": "gravitas-glass-cards-studio",
   "api": "1.0.0",
   "main": "code.js",
   "ui": "ui.html",
