@@ -441,63 +441,73 @@ function withTimeout(promise, ms) {
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-// ── Postimg recovery ───────────────────────────────────────────────
+async function fetchHtmlWithProxies(htmlUrl) {
+  const proxies = [
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(htmlUrl)}`,
+    `https://corsproxy.io/?${encodeURIComponent(htmlUrl)}`,
+    `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(htmlUrl)}`
+  ];
 
-function postimgPageFromDirect(url) {
-  try {
-    const u = new URL(url);
-    if (u.hostname === 'i.postimg.cc' || u.hostname.endsWith('.postimg.cc')) {
-      const parts = u.pathname.split('/').filter(Boolean);
-      if (parts.length >= 1) return 'https://postimg.cc/' + parts[0];
-    }
-  } catch (e) {}
-  return null;
-}
-
-async function resolveImagePage(response, baseUrl) {
-  const html = await response.text();
-  const doc = new DOMParser().parseFromString(html, 'text/html');
-  const meta = doc.querySelector('meta[property="og:image"],meta[name="twitter:image"]');
-  const imageUrl = meta?.getAttribute('content');
-  if (!imageUrl) throw new Error('No og:image found on page');
-  const absolute = new URL(imageUrl, baseUrl).href;
-  const r = await fetchResponse(absolute);
-  return normalizeImageBytes(new Uint8Array(await r.arrayBuffer()), r.headers.get('content-type') || '');
-}
-
-async function fetchPostimgOgImage(page) {
-  const r = await fetchResponse(page);
-  const html = await r.text();
-  const doc = new DOMParser().parseFromString(html, 'text/html');
-  const candidates = [...doc.querySelectorAll('meta[property="og:image"],meta[name="twitter:image"]')]
-    .map(m => m.getAttribute('content'))
-    .filter(Boolean);
-  if (!candidates.length) throw new Error('Postimg page has no og:image');
-  let last = '';
-  for (const c of candidates) {
+  let lastErr = null;
+  for (const proxy of proxies) {
     try {
-      const u = new URL(c, page).href;
-      const rr = await fetchResponse(u);
-      return normalizeImageBytes(new Uint8Array(await rr.arrayBuffer()), rr.headers.get('content-type') || '');
-    } catch (e) { last = e?.message || String(e); }
+      const r = await fetch(proxy, { mode: 'cors', cache: 'no-store' });
+      if (r.ok) {
+        const text = await r.text();
+        if (text && text.includes('<html')) return text;
+      }
+    } catch (e) {
+      lastErr = e;
+    }
   }
-  throw new Error(last || 'Could not fetch Postimg image');
+  throw new Error('All CORS proxies failed to fetch HTML: ' + (lastErr?.message || ''));
+}
+
+async function resolveHtmlPageToImage(url) {
+  try {
+    const html = await fetchHtmlWithProxies(url);
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const meta = doc.querySelector('meta[property="og:image"],meta[name="twitter:image"]');
+    const ogImage = meta?.getAttribute('content');
+    if (ogImage) {
+      const resolved = new URL(ogImage, url).href;
+      log('Resolved HTML page to direct image: ' + resolved, 'info');
+      return resolved;
+    }
+    throw new Error('No og:image found in HTML.');
+  } catch (err) {
+    log('Failed to resolve HTML page for ' + url + ': ' + err.message, 'warn');
+    return url; // Return original URL if resolution fails, let normal pipeline handle it
+  }
 }
 
 // ── 5-Tier Image Pipeline ──────────────────────────────────────────
 // Tier 1: Direct fetch in UI (fastest, ~200ms)
-// Tier 2: Postimg og:image recovery (if applicable)
-// Tier 3: Proxy via images.weserv.nl (CORS bypass)
-// Tier 4: figma.createImageAsync — direct (via code.js)
-// Tier 5: figma.createImageAsync + proxy (via code.js)
+// Tier 2: Proxy via images.weserv.nl (CORS bypass)
+// Tier 3: figma.createImageAsync — direct (via code.js)
+// Tier 4: figma.createImageAsync + proxy (via code.js)
 //
-// Tiers 1-3 run in the UI (browser), with 2 attempts each + 1s backoff.
-// Tiers 4-5 run in code.js (Figma runtime), triggered if Tiers 1-3 all fail.
-// Resolution is NEVER changed — PNG/JPEG pass through raw, other formats
-// are converted to PNG at native resolution via canvas.
+// Note: Google Drive and HTML pages (Postimg, Kommodo) are resolved to
+// direct image URLs BEFORE entering the tiers.
 
 async function fetchImageBytesSmart(originalUrl) {
-  const url = String(originalUrl).trim();
+  let url = String(originalUrl).trim();
+
+  // --- PRE-PROCESSING / URL NORMALIZATION ---
+
+  // 1. Google Drive direct link conversion (no HTML scraping needed)
+  const driveMatch = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (driveMatch) {
+    url = `https://drive.google.com/uc?export=download&id=${driveMatch[1]}`;
+    log('Converted Google Drive link to direct download: ' + url, 'info');
+  }
+
+  // 2. HTML Page Resolution (postimg.cc, kommodo.ai, etc.)
+  const isHtmlService = url.includes('postimg.cc') || url.includes('kommodo.ai');
+  if (isHtmlService && !url.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+    url = await resolveHtmlPageToImage(url);
+  }
+
   const tiers = [];
 
   // ── Tier 1: Direct fetch ──
@@ -510,23 +520,11 @@ async function fetchImageBytesSmart(originalUrl) {
       if (ct.startsWith('image/')) {
         return normalizeImageBytes(new Uint8Array(await r.arrayBuffer()), ct);
       }
-      // Response isn't an image — might be an HTML page with og:image
-      return resolveImagePage(r, url);
+      throw new Error('Response is not an image (Content-Type: ' + ct + ')');
     },
   });
 
-  // ── Tier 2: Postimg page / og:image recovery ──
-  const isPostimgPage = url.startsWith('https://postimg.cc/') || url.startsWith('http://postimg.cc/');
-  const postimgPage = isPostimgPage ? url : postimgPageFromDirect(url);
-  if (postimgPage) {
-    tiers.push({
-      label: 'postimg',
-      timeout: 12000,
-      fn: async () => fetchPostimgOgImage(postimgPage),
-    });
-  }
-
-  // ── Tier 3: CORS proxy ──
+  // ── Tier 2: CORS proxy ──
   tiers.push({
     label: 'proxy',
     timeout: 15000,
