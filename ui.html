@@ -90,6 +90,7 @@ button:hover{filter:brightness(1.15)}button:disabled{opacity:.42;cursor:not-allo
     <div class="grow" style="display:flex;flex-direction:column;gap:6px;margin-top:16px">
       <label style="display:flex;gap:6px;align-items:center"><input id="follow" type="checkbox" checked> Follow current event in Figma</label>
       <label style="display:flex;gap:6px;align-items:center" title="Uses the local fetch_images.py server on port 8000 to bypass all download errors"><input id="localServer" type="checkbox" checked> Use Local Image Server</label>
+      <label style="display:flex;gap:6px;align-items:center" title="Do not fall back to the internet if local server fails"><input id="skipInternet" type="checkbox" checked> Skip internet fallback</label>
     </div>
   </div>
 </div>
@@ -498,6 +499,7 @@ async function fetchImageBytesSmart(originalUrl, eventName) {
   if (useLocal && eventName) {
     const safeName = String(eventName).replace(/[<>:"/\\|?*]/g, '_').trim();
     const exts = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp'];
+    let lastErr = '';
     for (const ext of exts) {
       try {
         const localUrl = `http://localhost:8000/${encodeURIComponent(safeName)}${ext}`;
@@ -508,13 +510,23 @@ async function fetchImageBytesSmart(originalUrl, eventName) {
              const bytes = await normalizeImageBytes(new Uint8Array(await r.arrayBuffer()), ct);
              log('Fetched ' + safeName + ext + ' from local server', 'info');
              return { bytes, tier: 'local-server', attempt: 1 };
+          } else {
+             lastErr = `Content-Type not image: ${ct}`;
           }
+        } else {
+          lastErr = `HTTP ${r.status}`;
         }
       } catch (e) {
-        // Ignore errors and try next extension
+        lastErr = e.message || String(e);
       }
     }
-    log('Local server fetch failed for ' + eventName + ', falling back to internet.', 'warn');
+    const skipInternet = document.getElementById('skipInternet')?.checked;
+    if (skipInternet) {
+      log(`Local server fetch failed for ${eventName} (Last error: ${lastErr}). Skipping internet fallback.`, 'error');
+      throw new Error(`Local server missing image for ${eventName}`);
+    } else {
+      log(`Local server fetch failed for ${eventName} (Last error: ${lastErr}), falling back to internet.`, 'warn');
+    }
   }
 
   let url = String(originalUrl).trim();
