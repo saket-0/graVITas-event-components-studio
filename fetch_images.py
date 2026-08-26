@@ -155,7 +155,7 @@ def main():
     print("Press Ctrl+C to stop.")
     
     os.chdir(DOWNLOAD_DIR)
-    httpd = HTTPServer(('localhost', 8000), CORSRequestHandler)
+    httpd = HTTPServer(('0.0.0.0', 8000), CORSRequestHandler)
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

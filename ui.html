@@ -502,7 +502,7 @@ async function fetchImageBytesSmart(originalUrl, eventName) {
     let lastErr = '';
     for (const ext of exts) {
       try {
-        const localUrl = `http://localhost:8000/${encodeURIComponent(safeName)}${ext}`;
+        const localUrl = `http://127.0.0.1:8000/${encodeURIComponent(safeName)}${ext}`;
         const r = await fetch(localUrl, { mode: 'cors', redirect: 'follow', cache: 'no-store' });
         if (r.ok) {
           const ct = (r.headers.get('content-type') || '').toLowerCase();
