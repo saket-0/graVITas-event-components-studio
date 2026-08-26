@@ -158,8 +158,9 @@ async function createMaster(options) {
   master.appendChild(dateGroup);
   dateGroup.name = 'Date Group';
   dateGroup.layoutMode = 'HORIZONTAL';
-  dateGroup.primaryAxisSizingMode = 'AUTO';
+  dateGroup.primaryAxisSizingMode = 'FIXED';
   dateGroup.counterAxisSizingMode = 'AUTO';
+  dateGroup.resize(280, 100);
   dateGroup.itemSpacing = 16;
   dateGroup.fills = [];
   dateGroup.counterAxisAlignItems = 'CENTER';
