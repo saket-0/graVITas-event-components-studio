@@ -899,6 +899,16 @@ $('auto').onclick = () => { mode = 'auto'; $('auto').classList.add('active'); $(
 $('manual').onclick = () => { mode = 'manual'; $('manual').classList.add('active'); $('auto').classList.remove('active'); };
 
 // File input
+$('imageFolder').onchange = e => {
+  localImageFiles.clear();
+  const files = e.target.files;
+  for (let i = 0; i < files.length; i++) {
+    localImageFiles.set(files[i].name, files[i]);
+  }
+  $('folderStats').textContent = `${localImageFiles.size} images ready for local loading.`;
+  log(`Loaded ${localImageFiles.size} local images from folder.`, 'ok');
+};
+
 $('file').onchange = async ev => {
   const files = [...(ev.target.files || [])];
   if (!files.length) return;
