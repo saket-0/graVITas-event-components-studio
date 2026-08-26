@@ -86,11 +86,13 @@ button:hover{filter:brightness(1.15)}button:disabled{opacity:.42;cursor:not-allo
     <div><label>Title px</label><input id="titleSize" type="number" value="8" min="4" max="30"></div>
   </div>
   <div class="row" style="margin-top:7px">
-    <div class="grow"><label>Date px</label><input id="dateSize" type="number" value="8" min="4" max="30"></div>
     <div class="grow" style="display:flex;flex-direction:column;gap:6px;margin-top:16px">
       <label style="display:flex;gap:6px;align-items:center"><input id="follow" type="checkbox" checked> Follow current event in Figma</label>
-      <label style="display:flex;gap:6px;align-items:center" title="Uses the local fetch_images.py server on port 8000 to bypass all download errors"><input id="localServer" type="checkbox" checked> Use Local Image Server</label>
-      <label style="display:flex;gap:6px;align-items:center" title="Do not fall back to the internet if local server fails"><input id="skipInternet" type="checkbox" checked> Skip internet fallback</label>
+      <div style="margin-top:8px; display:flex; flex-direction:column; gap:4px">
+        <label class="tiny"><b>Optional: Select Downloads Folder</b></label>
+        <input id="imageFolder" type="file" webkitdirectory directory multiple>
+        <span id="folderStats" class="tiny" style="color:var(--figma-color-text-brand)">No local folder selected. Will fall back to internet if empty.</span>
+      </div>
     </div>
   </div>
 </div>
@@ -152,6 +154,9 @@ let sourceFiles = [];
 const imageCache = new Map();
 const imageInflight = new Map();
 const PREFETCH_WINDOW = 3;
+
+// Holds File objects from local folder selection
+const localImageFiles = new Map();
 
 // ETA tracking
 let processedTimes = [];
@@ -486,64 +491,48 @@ async function resolveHtmlPageToImage(url) {
 }
 
 // ── 5-Tier Image Pipeline ──────────────────────────────────────────
-// Tier 1: Direct fetch in UI (fastest, ~200ms)
-// Tier 2: Proxy via images.weserv.nl (CORS bypass)
-// Tier 3: figma.createImageAsync — direct (via code.js)
-// Tier 4: figma.createImageAsync + proxy (via code.js)
-//
-// Note: Google Drive and HTML pages (Postimg, Kommodo) are resolved to
-// direct image URLs BEFORE entering the tiers.
 
 async function fetchImageBytesSmart(originalUrl, eventName) {
-  const useLocal = document.getElementById('localServer')?.checked;
-  if (useLocal && eventName) {
+  // Check if we have the file in our local folder selection
+  if (eventName && localImageFiles.size > 0) {
     const safeName = String(eventName).replace(/[<>:"/\\|?*]/g, '_').trim();
     const exts = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp'];
-    let lastErr = '';
+    
     for (const ext of exts) {
-      try {
-        const localUrl = `http://localhost:8000/${encodeURIComponent(safeName)}${ext}`;
-        const r = await fetch(localUrl, { mode: 'cors', redirect: 'follow', cache: 'no-store' });
-        if (r.ok) {
-          const ct = (r.headers.get('content-type') || '').toLowerCase();
-          if (ct.startsWith('image/')) {
-             const bytes = await normalizeImageBytes(new Uint8Array(await r.arrayBuffer()), ct);
-             log('Fetched ' + safeName + ext + ' from local server', 'info');
-             return { bytes, tier: 'local-server', attempt: 1 };
-          } else {
-             lastErr = `Content-Type not image: ${ct}`;
-          }
-        } else {
-          lastErr = `HTTP ${r.status}`;
+      const filename = safeName + ext;
+      if (localImageFiles.has(filename)) {
+        const file = localImageFiles.get(filename);
+        try {
+          const buf = await file.arrayBuffer();
+          const ct = file.type || 'image/' + ext.substring(1);
+          const bytes = await normalizeImageBytes(new Uint8Array(buf), ct);
+          log('Loaded ' + filename + ' direct from local folder', 'info');
+          return { bytes, tier: 'local-folder', attempt: 1 };
+        } catch (e) {
+          log('Failed reading local file ' + filename + ': ' + e, 'warn');
         }
-      } catch (e) {
-        lastErr = e.message || String(e);
       }
-    }
-    const skipInternet = document.getElementById('skipInternet')?.checked;
-    if (skipInternet) {
-      log(`Local server fetch failed for ${eventName} (Last error: ${lastErr}). Skipping internet fallback.`, 'error');
-      throw new Error(`Local server missing image for ${eventName}`);
-    } else {
-      log(`Local server fetch failed for ${eventName} (Last error: ${lastErr}), falling back to internet.`, 'warn');
     }
   }
 
-  let url = String(originalUrl).trim();
-
-  // --- PRE-PROCESSING / URL NORMALIZATION ---
+  // If local folder selection failed or was not provided, fall back to internet
+  const url = String(originalUrl || '').trim();
+  if (!url || url === 'undefined' || url === 'null') {
+    throw new Error('No URL provided');
+  }
 
   // 1. Google Drive direct link conversion (no HTML scraping needed)
-  const driveMatch = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+  let resolvedUrl = url;
+  const driveMatch = resolvedUrl.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
   if (driveMatch) {
-    url = `https://drive.google.com/uc?export=download&id=${driveMatch[1]}`;
-    log('Converted Google Drive link to direct download: ' + url, 'info');
+    resolvedUrl = `https://drive.google.com/uc?export=download&id=${driveMatch[1]}`;
+    log('Converted Google Drive link to direct download: ' + resolvedUrl, 'info');
   }
 
   // 2. HTML Page Resolution (postimg.cc, kommodo.ai, etc.)
-  const isHtmlService = url.includes('postimg.cc') || url.includes('kommodo.ai');
-  if (isHtmlService && !url.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
-    url = await resolveHtmlPageToImage(url);
+  const isHtmlService = resolvedUrl.includes('postimg.cc') || resolvedUrl.includes('kommodo.ai');
+  if (isHtmlService && !resolvedUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+    resolvedUrl = await resolveHtmlPageToImage(resolvedUrl);
   }
 
   const tiers = [];
@@ -553,7 +542,7 @@ async function fetchImageBytesSmart(originalUrl, eventName) {
     label: 'direct',
     timeout: 12000,
     fn: async () => {
-      const r = await fetchResponse(url);
+      const r = await fetchResponse(resolvedUrl);
       const ct = (r.headers.get('content-type') || '').toLowerCase();
       if (ct.startsWith('image/')) {
         return normalizeImageBytes(new Uint8Array(await r.arrayBuffer()), ct);
@@ -567,7 +556,7 @@ async function fetchImageBytesSmart(originalUrl, eventName) {
     label: 'proxy',
     timeout: 15000,
     fn: async () => {
-      const proxyUrl = 'https://images.weserv.nl/?url=' + encodeURIComponent(url) + '&output=png';
+      const proxyUrl = 'https://images.weserv.nl/?url=' + encodeURIComponent(resolvedUrl) + '&output=png';
       const r = await fetchResponse(proxyUrl);
       return normalizeImageBytes(
         new Uint8Array(await r.arrayBuffer()),
@@ -840,7 +829,6 @@ function finishRun(stopped) {
   );
   log(stopped ? 'DONE — stopped by user.' : 'DONE — queue finished.', stopped ? 'warn' : 'ok');
 }
-
 // ── Event handlers ─────────────────────────────────────────────────
 
 // Selection buttons
