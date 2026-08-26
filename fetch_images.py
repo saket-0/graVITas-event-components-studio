@@ -3,6 +3,7 @@ import re
 import sys
 import time
 import urllib.parse
+import socket
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 import pandas as pd
 import requests
@@ -104,6 +105,14 @@ class CORSRequestHandler(SimpleHTTPRequestHandler):
         self.send_response(200, "ok")
         self.end_headers()
 
+class DualStackServer(HTTPServer):
+    address_family = socket.AF_INET6
+    
+    def server_bind(self):
+        # Disable IPV6_V6ONLY to allow both IPv4 and IPv6
+        self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
+        super().server_bind()
+
 def main():
     ensure_dir()
     
@@ -151,11 +160,12 @@ def main():
             
     print("\n" + "="*40)
     print("Starting local CORS server on http://localhost:8000")
+    print("Dual-stack IPv4/IPv6 is enabled.")
     print("Point your Figma plugin to use the local server.")
     print("Press Ctrl+C to stop.")
     
     os.chdir(DOWNLOAD_DIR)
-    httpd = HTTPServer(('0.0.0.0', 8000), CORSRequestHandler)
+    httpd = DualStackServer(('', 8000), CORSRequestHandler)
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
