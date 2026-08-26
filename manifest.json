@@ -1,0 +1,17 @@
+{
+  "name": "GraVITas '26 — Event Components Studio v9",
+  "id": "gravitas-event-components-studio-v9",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
+  "networkAccess": {
+    "allowedDomains": [
+      "https://postimg.cc",
+      "https://*.postimg.cc",
+      "https://images.weserv.nl"
+    ],
+    "reasoning": "Downloads event logos from URLs supplied in user-selected Excel files. Uses weserv.nl as a CORS proxy fallback."
+  }
+}

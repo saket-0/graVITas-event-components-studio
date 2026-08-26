@@ -1,0 +1,1187 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,Arial,sans-serif;background:#151225;color:#f7f4ff;padding:14px;overflow:auto}
+h1{font-size:17px;margin:0}
+.header{display:flex;justify-content:space-between;align-items:center}
+.conn-ok{font-size:9px;color:#7de89a;white-space:nowrap}
+.conn-warn{font-size:9px;color:#ff8b9a;animation:pulse 1.2s infinite;white-space:nowrap}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.sub{font-size:10px;color:#aaa4bd;line-height:1.45;margin:4px 0 12px}
+.card{background:#24203a;border:1px solid #3b3457;border-radius:10px;padding:11px;margin-bottom:9px}
+.step{font-size:9px;font-weight:700;color:#9beeff;letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px}
+label{font-size:10px;color:#bbb4d0;display:block;margin-bottom:5px}
+input[type=file],input[type=date],input[type=number]{width:100%;font-size:10px;color:#f7f4ff;background:#17132a;border:1px solid #494162;border-radius:7px;padding:7px}
+button{border:0;border-radius:7px;padding:7px 9px;font-weight:650;font-size:10px;cursor:pointer;color:#eee9ff;background:#393252;transition:filter .12s}
+button:hover{filter:brightness(1.15)}button:disabled{opacity:.42;cursor:not-allowed}
+.primary{background:#e9e2ff;color:#17132a}.danger{background:#613344}.success{background:#315b50}
+.row{display:flex;gap:7px;align-items:center}.grow{flex:1;min-width:0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px}
+.tiny{font-size:9px;color:#8f88a3}
+.stats{display:flex;justify-content:space-between;font-size:10px;color:#c8c1d7}
+.progress{height:8px;background:#161229;border-radius:99px;overflow:hidden;margin:7px 0}
+.bar{height:100%;width:0;background:linear-gradient(90deg,#9beeff,#7bb8ff);transition:width .2s ease}
+.status{font-size:10px;color:#c9c2da;min-height:15px;line-height:1.4}
+.mode{display:flex;gap:6px}.mode button{flex:1}
+.active{outline:1px solid #9beeff;background:#3b3557}
+.queue{max-height:245px;overflow:auto;border:1px solid #3b3457;border-radius:8px;background:#19152b}
+.item{display:grid;grid-template-columns:18px 24px 1fr auto;gap:7px;align-items:center;padding:6px 7px;border-bottom:1px solid #302a49;transition:background .15s}
+.item:last-child{border-bottom:0}
+.item:hover{background:#211d36}
+.thumb{width:24px;height:24px;border-radius:4px;background:#fff2;overflow:hidden}
+.thumb img{width:100%;height:100%;object-fit:contain}
+.name{font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.date{font-size:9px;color:#aaa4bd}
+.badge{font-size:8px;padding:3px 5px;border-radius:99px;background:#37304e;color:#d6d0e5}
+.ready{background:#244e43;color:#bff5e8}.working{background:#4c4466;color:#fff;animation:pulse 1.2s infinite}
+.failed{background:#633243;color:#ffd7df}.queued{background:#37304e}.created{background:#3b4160;color:#dce6ff}.excluded{background:#4b4657;color:#cbc5d1}
+.tier-direct{background:#1e3a5f;color:#7bb8e8;font-size:7px}.tier-postimg{background:#4a3420;color:#f0a858;font-size:7px}
+.tier-proxy{background:#4a4520;color:#e8d86e;font-size:7px}.tier-figma{background:#1e4a32;color:#6ee8a0;font-size:7px}
+.badges{display:flex;gap:3px;align-items:center;flex-shrink:0}
+.log{height:110px;overflow:auto;background:#131025;border-radius:7px;padding:7px;font:9px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap}
+.log-ok{color:#7de89a}.log-err{color:#ff8b9a}.log-warn{color:#ffd07b}.log-info{color:#bdb6ce}
+.preview{display:grid;grid-template-columns:52px 1fr;gap:9px;align-items:center}
+.previewImg{width:52px;height:52px;border-radius:6px;background:#fff1;object-fit:contain}
+.previewTitle{font-size:11px;font-weight:700}.previewDate{font-size:10px;color:#aaa4bd;margin-top:2px}
+.sep{height:1px;background:#383250;margin:9px 0}
+.eta{font-size:9px;color:#9beeff;min-height:13px}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>GraVITas '26 — Event Components Studio</h1>
+  <span id="connStatus" class="conn-ok">● Connected</span>
+</div>
+<div class="sub">Nothing starts automatically. Load data → review → choose options → prepare → start. Components and logos appear live as each event is processed.</div>
+
+<div class="card">
+  <div class="step">1 · Data source</div>
+  <input id="file" type="file" multiple accept=".xlsx,.xlsm,.xltx,.xltm,.csv,.tsv">
+  <div class="row" style="margin-top:7px"><span id="source" class="tiny">No Excel file selected</span></div>
+  <div id="sources" class="tiny" style="margin-top:5px"></div>
+</div>
+
+<div class="card">
+  <div class="step">2 · Review & selection</div>
+  <div class="grid3">
+    <button id="all">Select all</button><button id="none">Select none</button><button id="failedOnly">Failed only</button><button id="retryFailed">Refetch failed</button>
+  </div>
+  <div class="row" style="margin-top:7px">
+    <div class="grow"><label>Only include events on/before</label><input id="cutoff" type="date"></div>
+    <div style="width:90px"><label>Max name width</label><input id="maxWidth" type="number" value="310" min="80" max="1000"></div>
+  </div>
+  <div id="stats" class="stats" style="margin-top:8px"><span>0 loaded</span><span>0 selected</span></div>
+  <div id="queue" class="queue" style="margin-top:7px"><div class="tiny" style="padding:12px">Load an Excel file to see the event queue.</div></div>
+</div>
+
+<div class="card">
+  <div class="step">3 · Component options</div>
+  <div class="grid3">
+    <div><label>Logo px</label><input id="iconSize" type="number" value="25" min="12" max="100"></div>
+    <div><label>Gap px</label><input id="gap" type="number" value="6" min="0" max="40"></div>
+    <div><label>Title px</label><input id="titleSize" type="number" value="8" min="4" max="30"></div>
+  </div>
+  <div class="row" style="margin-top:7px">
+    <div class="grow"><label>Date px</label><input id="dateSize" type="number" value="8" min="4" max="30"></div>
+    <label class="grow" style="display:flex;gap:6px;align-items:center;margin-top:16px"><input id="follow" type="checkbox" checked> Follow current event in Figma</label>
+  </div>
+</div>
+
+<div class="card">
+  <div class="step">4 · Run controls</div>
+  <div class="mode"><button id="auto" class="active">Auto stream</button><button id="manual">One at a time</button></div>
+  <div class="row" style="margin-top:7px"><button id="prepare" class="grow">Prepare session</button><button id="start" class="primary grow" disabled>Start</button></div>
+  <div class="row" style="margin-top:7px"><button id="pause" disabled>Pause</button><button id="stop" class="danger" disabled>Stop</button><button id="reset" disabled>Reset session</button></div>
+</div>
+
+<div class="card">
+  <div class="step">5 · Live progress</div>
+  <div class="stats"><span id="count">0 / 0</span><span id="percent">0%</span></div>
+  <div class="progress"><div id="bar" class="bar"></div></div>
+  <div id="eta" class="eta"></div>
+  <div id="status" class="status">Select an Excel file to begin. Nothing is running.</div>
+  <div class="sep"></div>
+  <div class="preview"><div id="previewBox" class="previewImg"></div><div><div id="previewTitle" class="previewTitle">No event running</div><div id="previewDate" class="previewDate">—</div></div></div>
+</div>
+
+<div class="card">
+  <div class="step">Activity log</div>
+  <div id="log" class="log"><div class="log-info">Ready. The plugin will not touch your Figma file until you press "Prepare session" and then "Start".</div></div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// GraVITas '26 — Event Components Studio v9 — UI
+// 5-tier image fallback, retry with backoff, image validation,
+// deduplication, batch summary, ETA, health check, resolution-safe.
+// ═══════════════════════════════════════════════════════════════════
+
+// ── DOM & messaging helpers ────────────────────────────────────────
+
+const $ = id => document.getElementById(id);
+const parent = window.parent;
+function post(type, payload = {}) {
+  parent.postMessage({ pluginMessage: { type, ...payload } }, '*');
+}
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, m => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;',
+  }[m]));
+}
+
+// ── State ──────────────────────────────────────────────────────────
+
+let events = [];
+let running = false;
+let paused = false;
+let stopRequested = false;
+let mode = 'auto';
+let prepared = false;
+let currentIndex = -1;
+let logoNodeByIndex = {};
+let sourceFiles = [];
+
+const imageCache = new Map();
+const imageInflight = new Map();
+const PREFETCH_WINDOW = 3;
+
+// ETA tracking
+let processedTimes = [];
+
+// Health check
+let lastHealthOk = Date.now();
+let healthInterval = null;
+
+// ── Logging (color-coded) ──────────────────────────────────────────
+
+function log(s, level = 'info') {
+  const box = $('log');
+  const now = new Date().toLocaleTimeString();
+  const line = document.createElement('div');
+  line.className = 'log-' + (level || 'info');
+  line.textContent = '[' + now + '] ' + s;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+
+// ── Formatting helpers ─────────────────────────────────────────────
+
+function fmtDate(v) {
+  if (!v) return '';
+  const d = new Date(v);
+  if (isNaN(d.getTime())) return String(v).slice(0, 10);
+  return d.toLocaleDateString(undefined, { day: '2-digit', month: 'long' }).toUpperCase();
+}
+
+function setStatus(s) { $('status').innerHTML = s; }
+function selectedCount() { return events.filter(e => e.selected).length; }
+
+function updateStats() {
+  $('stats').innerHTML = '<span>' + events.length + ' loaded</span><span>' + selectedCount() + ' selected</span>';
+}
+
+function updateProgress() {
+  const total = events.filter(e => e.selected).length;
+  const done = events.filter(e => e.selected && ['ready','failed','excluded'].includes(e.status)).length;
+  const pct = total ? Math.round(done / total * 100) : 0;
+  $('count').textContent = done + ' / ' + total;
+  $('percent').textContent = pct + '%';
+  $('bar').style.width = pct + '%';
+  // ETA
+  const remaining = total - done;
+  $('eta').textContent = getEta(remaining);
+}
+
+function getEta(remaining) {
+  if (!processedTimes.length || remaining <= 0) return '';
+  const avg = processedTimes.reduce((a, b) => a + b, 0) / processedTimes.length;
+  const seconds = Math.round(avg * remaining / 1000);
+  if (seconds < 5) return '';
+  if (seconds < 60) return '~' + seconds + 's remaining';
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return '~' + m + 'm ' + s + 's remaining';
+}
+
+function setItemStatus(i, status, detail = '') {
+  if (!events[i]) return;
+  events[i].status = status;
+  events[i].detail = detail;
+  renderQueue();
+  updateProgress();
+}
+
+// ── Queue rendering ────────────────────────────────────────────────
+
+function tierBadgeClass(tier) {
+  if (!tier) return '';
+  if (tier === 'direct') return 'tier-direct';
+  if (tier === 'postimg') return 'tier-postimg';
+  if (tier === 'proxy') return 'tier-proxy';
+  if (tier.startsWith('figma')) return 'tier-figma';
+  return 'tier-direct';
+}
+
+function renderQueue() {
+  const q = $('queue');
+  if (!events.length) {
+    q.innerHTML = '<div class="tiny" style="padding:12px">Load an Excel file to see the event queue.</div>';
+    return;
+  }
+  q.innerHTML = events.map((e, i) => {
+    const tierHtml = e.tier
+      ? '<span class="badge ' + tierBadgeClass(e.tier) + '">' + esc(e.tier) + '</span>'
+      : '';
+    return '<div class="item">'
+      + '<input class="check" type="checkbox" data-i="' + i + '"'
+      + (e.selected ? ' checked' : '') + (running ? ' disabled' : '') + '>'
+      + '<div class="thumb">' + (e.preview ? '<img src="' + e.preview + '" alt="">' : '') + '</div>'
+      + '<div class="grow">'
+      + '<div class="name" title="' + esc(e.e.event_name) + '">' + esc(e.e.event_name) + '</div>'
+      + '<div class="date">' + esc(fmtDate(e.e.slot_start_datetime)) + '</div>'
+      + '</div>'
+      + '<div class="badges">' + tierHtml + '<span class="badge ' + e.status + '">' + esc(e.status) + '</span></div>'
+      + '</div>';
+  }).join('');
+  q.querySelectorAll('.check').forEach(c =>
+    c.addEventListener('change', () => {
+      events[Number(c.dataset.i)].selected = c.checked;
+      updateStats();
+    })
+  );
+}
+
+// ── Data loading & deduplication ───────────────────────────────────
+
+function sortEventsChronologically() {
+  events.sort((a, b) => {
+    const da = new Date(a.e.slot_start_datetime);
+    const db = new Date(b.e.slot_start_datetime);
+    const ta = isNaN(da.getTime()) ? Number.POSITIVE_INFINITY : da.getTime();
+    const tb = isNaN(db.getTime()) ? Number.POSITIVE_INFINITY : db.getTime();
+    if (ta !== tb) return ta - tb;
+    return a.e.event_name.localeCompare(b.e.event_name);
+  });
+}
+
+function applyCutoffSelection() {
+  const v = $('cutoff').value;
+  if (!v) return;
+  const cutoff = new Date(v + 'T23:59:59');
+  events.forEach(e => {
+    const d = new Date(e.e.slot_start_datetime);
+    e.selected = !isNaN(d) && d <= cutoff;
+  });
+}
+
+function loadEvents(rows, label) {
+  // Deduplicate: skip events with same name + same URL that already exist in the queue
+  const existingKeys = new Set(
+    events.map(e => e.e.event_name + '||' + e.e.image_url)
+  );
+
+  const incoming = [];
+  let dupeCount = 0;
+  for (const r of rows) {
+    const key = String(r.event_name) + '||' + String(r.image_url);
+    if (existingKeys.has(key)) {
+      dupeCount++;
+      continue;
+    }
+    existingKeys.add(key); // Also catch within-file duplicates
+    incoming.push({
+      e: {
+        event_name: String(r.event_name || ''),
+        image_url: String(r.image_url || ''),
+        slot_start_datetime: String(r.slot_start_datetime || ''),
+        slot_end_datetime: String(r.slot_end_datetime || ''),
+        source_file: String(r.source_file || label),
+      },
+      selected: true,
+      status: 'queued',
+      detail: '',
+      preview: '',
+      tier: '',
+    });
+  }
+
+  if (dupeCount > 0) {
+    log('Skipped ' + dupeCount + ' duplicate event' + (dupeCount === 1 ? '' : 's') + ' from ' + label + '.', 'warn');
+  }
+
+  events.push(...incoming);
+  sortEventsChronologically();
+  applyCutoffSelection();
+  prepared = false;
+  currentIndex = -1;
+  logoNodeByIndex = {};
+
+  $('source').textContent = sourceFiles.length + ' Excel file' + (sourceFiles.length === 1 ? '' : 's') + ' loaded';
+  $('sources').textContent = sourceFiles.join('  •  ');
+  renderQueue();
+  updateStats();
+  updateProgress();
+  setStatus('Loaded ' + incoming.length + ' events from <b>' + esc(label) + '</b>. Queue is sorted by start date/time.');
+  log('Loaded ' + incoming.length + ' events from ' + label + '. Total queue: ' + events.length + '.', 'info');
+}
+
+// ── Image byte validation (UI-side) ───────────────────────────────
+// Quick check before sending bytes to code.js to avoid transferring
+// garbage over the message bridge.
+
+function validateImageBytesUI(bytes) {
+  if (!bytes || bytes.length < 67) {
+    return { valid: false, reason: 'Too small (' + (bytes?.length || 0) + ' bytes) — likely error page or empty.' };
+  }
+  const a = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  // PNG
+  const isPng = a[0] === 0x89 && a[1] === 0x50 && a[2] === 0x4E && a[3] === 0x47;
+  // JPEG
+  const isJpeg = a[0] === 0xFF && a[1] === 0xD8 && a[2] === 0xFF;
+
+  if (isPng || isJpeg) return { valid: true, format: isPng ? 'PNG' : 'JPEG' };
+
+  // Check if it's HTML (error page / 403 / redirect)
+  const head = String.fromCharCode(...a.slice(0, Math.min(300, a.length)));
+  if (head.includes('<!DOCTYPE') || head.includes('<!doctype') || head.includes('<html') || head.includes('<HTML')) {
+    return { valid: false, reason: 'Response is an HTML page (error page / 403 / redirect), not an image.' };
+  }
+
+  // After normalizeImageBytes, result should always be PNG or JPEG.
+  // If it's not, something went wrong.
+  return { valid: false, reason: 'Not a valid PNG or JPEG after normalization.' };
+}
+
+// ── Image normalization (resolution-safe) ──────────────────────────
+// Converts non-PNG/JPEG formats to PNG at FULL NATIVE RESOLUTION.
+// PNG/JPEG pass through with ZERO processing — no re-encoding, no
+// canvas, no resolution change whatsoever.
+
+async function normalizeImageBytes(bytes, contentType) {
+  const arr = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  const type = (contentType || '').toLowerCase();
+
+  // ── Pass through: PNG and JPEG go through raw — zero processing ──
+  if (type.includes('image/png') || type.includes('image/jpeg') || type.includes('image/jpg')) {
+    return arr;
+  }
+
+  // ── Convert other formats to PNG at full native resolution ──
+  const blob = new Blob([arr], { type: type || 'application/octet-stream' });
+  let source, width, height;
+
+  try {
+    // createImageBitmap always returns native dimensions
+    source = await createImageBitmap(blob);
+    width = source.width;
+    height = source.height;
+  } catch (e) {
+    // Fallback: HTMLImageElement (for formats createImageBitmap doesn't support)
+    const objUrl = URL.createObjectURL(blob);
+    try {
+      source = await new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('Downloaded file is not a valid/supported image format.'));
+        img.src = objUrl;
+      });
+      // IMPORTANT: naturalWidth/naturalHeight give true intrinsic dimensions,
+      // not display dimensions. This ensures no resolution change.
+      width = source.naturalWidth || source.width;
+      height = source.naturalHeight || source.height;
+    } finally {
+      URL.revokeObjectURL(objUrl);
+    }
+  }
+
+  if (width < 1 || height < 1) throw new Error('Image has zero dimensions.');
+
+  // Canvas at EXACT native pixel dimensions — no scaling
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Could not create canvas for image conversion.');
+
+  // Draw at origin with no size parameters — guaranteed native resolution
+  ctx.drawImage(source, 0, 0);
+  if (source.close) source.close(); // Release ImageBitmap memory
+
+  // Export as lossless PNG — no quality reduction, no resolution change
+  const pngBlob = await new Promise((resolve, reject) =>
+    canvas.toBlob(b => b ? resolve(b) : reject(new Error('PNG conversion failed.')), 'image/png')
+  );
+
+  const result = new Uint8Array(await pngBlob.arrayBuffer());
+  log('Converted ' + type + ' → PNG at native ' + width + '×' + height + ' (' + result.length + ' bytes).', 'info');
+  return result;
+}
+
+// ── Fetch helpers ──────────────────────────────────────────────────
+
+async function fetchResponse(url) {
+  const r = await fetch(url, { mode: 'cors', redirect: 'follow', cache: 'no-store' });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r;
+}
+
+function withTimeout(promise, ms) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Timed out after ' + ms + 'ms')), ms);
+    promise.then(
+      v => { clearTimeout(timer); resolve(v); },
+      e => { clearTimeout(timer); reject(e); }
+    );
+  });
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ── Postimg recovery ───────────────────────────────────────────────
+
+function postimgPageFromDirect(url) {
+  try {
+    const u = new URL(url);
+    if (u.hostname === 'i.postimg.cc' || u.hostname.endsWith('.postimg.cc')) {
+      const parts = u.pathname.split('/').filter(Boolean);
+      if (parts.length >= 1) return 'https://postimg.cc/' + parts[0];
+    }
+  } catch (e) {}
+  return null;
+}
+
+async function resolveImagePage(response, baseUrl) {
+  const html = await response.text();
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const meta = doc.querySelector('meta[property="og:image"],meta[name="twitter:image"]');
+  const imageUrl = meta?.getAttribute('content');
+  if (!imageUrl) throw new Error('No og:image found on page');
+  const absolute = new URL(imageUrl, baseUrl).href;
+  const r = await fetchResponse(absolute);
+  return normalizeImageBytes(new Uint8Array(await r.arrayBuffer()), r.headers.get('content-type') || '');
+}
+
+async function fetchPostimgOgImage(page) {
+  const r = await fetchResponse(page);
+  const html = await r.text();
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const candidates = [...doc.querySelectorAll('meta[property="og:image"],meta[name="twitter:image"]')]
+    .map(m => m.getAttribute('content'))
+    .filter(Boolean);
+  if (!candidates.length) throw new Error('Postimg page has no og:image');
+  let last = '';
+  for (const c of candidates) {
+    try {
+      const u = new URL(c, page).href;
+      const rr = await fetchResponse(u);
+      return normalizeImageBytes(new Uint8Array(await rr.arrayBuffer()), rr.headers.get('content-type') || '');
+    } catch (e) { last = e?.message || String(e); }
+  }
+  throw new Error(last || 'Could not fetch Postimg image');
+}
+
+// ── 5-Tier Image Pipeline ──────────────────────────────────────────
+// Tier 1: Direct fetch in UI (fastest, ~200ms)
+// Tier 2: Postimg og:image recovery (if applicable)
+// Tier 3: Proxy via images.weserv.nl (CORS bypass)
+// Tier 4: figma.createImageAsync — direct (via code.js)
+// Tier 5: figma.createImageAsync + proxy (via code.js)
+//
+// Tiers 1-3 run in the UI (browser), with 2 attempts each + 1s backoff.
+// Tiers 4-5 run in code.js (Figma runtime), triggered if Tiers 1-3 all fail.
+// Resolution is NEVER changed — PNG/JPEG pass through raw, other formats
+// are converted to PNG at native resolution via canvas.
+
+async function fetchImageBytesSmart(originalUrl) {
+  const url = String(originalUrl).trim();
+  const tiers = [];
+
+  // ── Tier 1: Direct fetch ──
+  tiers.push({
+    label: 'direct',
+    timeout: 12000,
+    fn: async () => {
+      const r = await fetchResponse(url);
+      const ct = (r.headers.get('content-type') || '').toLowerCase();
+      if (ct.startsWith('image/')) {
+        return normalizeImageBytes(new Uint8Array(await r.arrayBuffer()), ct);
+      }
+      // Response isn't an image — might be an HTML page with og:image
+      return resolveImagePage(r, url);
+    },
+  });
+
+  // ── Tier 2: Postimg page / og:image recovery ──
+  const isPostimgPage = url.startsWith('https://postimg.cc/') || url.startsWith('http://postimg.cc/');
+  const postimgPage = isPostimgPage ? url : postimgPageFromDirect(url);
+  if (postimgPage) {
+    tiers.push({
+      label: 'postimg',
+      timeout: 12000,
+      fn: async () => fetchPostimgOgImage(postimgPage),
+    });
+  }
+
+  // ── Tier 3: CORS proxy ──
+  tiers.push({
+    label: 'proxy',
+    timeout: 15000,
+    fn: async () => {
+      const proxyUrl = 'https://images.weserv.nl/?url=' + encodeURIComponent(url) + '&output=png';
+      const r = await fetchResponse(proxyUrl);
+      return normalizeImageBytes(
+        new Uint8Array(await r.arrayBuffer()),
+        r.headers.get('content-type') || 'image/png'
+      );
+    },
+  });
+
+  // ── Execute tiers with per-tier retry ──
+  const errors = [];
+  for (const tier of tiers) {
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const bytes = await withTimeout(tier.fn(), tier.timeout);
+
+        // Validate the result before returning
+        const validation = validateImageBytesUI(bytes);
+        if (!validation.valid) throw new Error('Validation: ' + validation.reason);
+
+        return { bytes, tier: tier.label, attempt };
+      } catch (e) {
+        const msg = tier.label + '#' + attempt + ': ' + (e.message || e);
+        errors.push(msg);
+        // Wait before retry (exponential: 1s, 2s)
+        if (attempt < 2) await sleep(1000 * attempt);
+      }
+    }
+  }
+
+  throw new Error('All UI tiers failed:\n  ' + errors.join('\n  '));
+}
+
+// ── Image cache & inflight dedup ───────────────────────────────────
+
+async function getImageBytes(i, url, force) {
+  if (!url) throw new Error('No image URL');
+  if (!force && imageCache.has(url)) return imageCache.get(url);
+  if (!force && imageInflight.has(url)) return imageInflight.get(url);
+
+  const promise = fetchImageBytesSmart(url);
+  imageInflight.set(url, promise);
+  try {
+    const result = await promise;
+    imageCache.set(url, result);
+    return result;
+  } finally {
+    imageInflight.delete(url);
+  }
+}
+
+function prefetchAhead(i) {
+  for (let k = i; k < Math.min(events.length, i + PREFETCH_WINDOW); k++) {
+    const item = events[k];
+    if (item?.selected && item.status !== 'ready' && item.e.image_url) {
+      getImageBytes(k, item.e.image_url, false).catch(err => {
+        // Log prefetch issues instead of silently swallowing
+        log('PREFETCH WARN [' + (item.e.event_name || k) + ']: ' + (err.message || err), 'warn');
+      });
+    }
+  }
+}
+
+// ── Figma bridge communication ─────────────────────────────────────
+
+function requestSkeleton(i) {
+  return new Promise((resolve, reject) => {
+    let done = false;
+    const cleanup = () => window.removeEventListener('message', handler);
+    const handler = ev => {
+      const m = ev.data?.pluginMessage;
+      if (!m || m.index !== i) return;
+      if (m.type === 'skeleton-created') { done = true; cleanup(); resolve(m); }
+      if (m.type === 'plugin-error')     { done = true; cleanup(); reject(new Error(m.message || 'Figma error')); }
+    };
+    window.addEventListener('message', handler);
+    post('create-skeleton', { index: i, event: events[i].e, options: getOptions() });
+    setTimeout(() => {
+      if (done) return;
+      cleanup();
+      reject(new Error('Figma did not respond while creating the component (20s timeout).'));
+    }, 20000);
+  });
+}
+
+function applyLogoBytes(i, bytes) {
+  return new Promise((resolve, reject) => {
+    let done = false;
+    const cleanup = () => window.removeEventListener('message', handler);
+    const handler = ev => {
+      const m = ev.data?.pluginMessage;
+      if (!m || m.index !== i) return;
+      if (m.type === 'logo-applied') { done = true; cleanup(); resolve(m); }
+      if (m.type === 'plugin-error') { done = true; cleanup(); reject(new Error(m.message || 'Figma image error')); }
+    };
+    window.addEventListener('message', handler);
+    post('apply-logo-bytes', { index: i, logoNodeId: logoNodeByIndex[i], bytes: Array.from(bytes) });
+    setTimeout(() => {
+      if (done) return;
+      cleanup();
+      reject(new Error('Figma did not confirm image insertion within 20 seconds.'));
+    }, 20000);
+  });
+}
+
+// Tiers 4 & 5: Ask code.js to fetch via figma.createImageAsync
+function requestFigmaImport(i, url) {
+  return new Promise((resolve, reject) => {
+    let done = false;
+    const cleanup = () => window.removeEventListener('message', handler);
+    const handler = ev => {
+      const m = ev.data?.pluginMessage;
+      if (!m || m.index !== i) return;
+      if (m.type === 'logo-applied') { done = true; cleanup(); resolve(m); }
+      if (m.type === 'plugin-error') { done = true; cleanup(); reject(new Error(m.message || 'Figma import failed')); }
+    };
+    window.addEventListener('message', handler);
+    post('import-logo', { index: i, logoNodeId: logoNodeByIndex[i], url: url });
+    setTimeout(() => {
+      if (done) return;
+      cleanup();
+      reject(new Error('Figma runtime import timed out after 30 seconds.'));
+    }, 30000);
+  });
+}
+
+// ── Process one event (full 5-tier pipeline) ───────────────────────
+
+async function processOne(i) {
+  const startTime = Date.now();
+  currentIndex = i;
+  const e = events[i];
+  setItemStatus(i, 'working');
+  $('previewTitle').textContent = e.e.event_name;
+  $('previewDate').textContent = fmtDate(e.e.slot_start_datetime);
+  $('previewBox').innerHTML = '';
+  setStatus('Creating component for <b>' + esc(e.e.event_name) + '</b>…');
+  log('CREATE ' + (i + 1) + '/' + events.length + ' — ' + e.e.event_name, 'info');
+
+  // Prefetch upcoming images in parallel
+  prefetchAhead(i);
+
+  try {
+    // Step 1: Create the Figma component skeleton
+    const r = await requestSkeleton(i);
+    logoNodeByIndex[i] = r.logoNodeId;
+    setItemStatus(i, 'created');
+
+    if (!e.e.image_url) throw new Error('No image URL provided for this event.');
+
+    // Step 2: Fetch and apply the image
+    setStatus('Component created. Fetching logo for <b>' + esc(e.e.event_name) + '</b>…');
+
+    let tier = 'unknown';
+
+    // Tiers 1-3: Try fetching in UI (browser context)
+    try {
+      const result = await getImageBytes(i, e.e.image_url, false);
+      const bytes = result.bytes || result;
+      tier = result.tier || 'ui';
+
+      setStatus('Logo fetched (' + tier + '). Inserting into component…');
+      await applyLogoBytes(i, bytes);
+    } catch (uiErr) {
+      // Tiers 4-5: Fall back to Figma runtime (different network stack)
+      log('UI tiers failed: ' + (uiErr.message || uiErr) + '. Trying Figma runtime…', 'warn');
+      setStatus('Browser fetch failed. Trying Figma runtime for <b>' + esc(e.e.event_name) + '</b>…');
+
+      try {
+        const figmaResult = await requestFigmaImport(i, e.e.image_url);
+        tier = figmaResult.source || 'figma';
+      } catch (figmaErr) {
+        throw new Error(
+          'All 5 tiers failed.\n'
+          + '  Browser: ' + (uiErr.message || uiErr) + '\n'
+          + '  Figma: ' + (figmaErr.message || figmaErr)
+        );
+      }
+    }
+
+    // Success
+    events[i].tier = tier;
+    setItemStatus(i, 'ready');
+    setStatus('✓ <b>' + esc(e.e.event_name) + '</b> complete (' + tier + ').');
+    log('READY — ' + e.e.event_name + ' [' + tier + ']', 'ok');
+  } catch (err) {
+    setItemStatus(i, 'failed', err.message || String(err));
+    setStatus('⚠ <b>' + esc(e.e.event_name) + '</b> — logo failed: ' + esc(err.message || err) + '.');
+    log('FAILED — ' + e.e.event_name + ' — ' + (err.message || err), 'err');
+  }
+
+  // Track timing for ETA calculation
+  processedTimes.push(Date.now() - startTime);
+  // Keep only last 20 timings for a rolling average
+  if (processedTimes.length > 20) processedTimes = processedTimes.slice(-20);
+}
+
+// ── Batch summary ──────────────────────────────────────────────────
+
+function showBatchSummary() {
+  const sel = events.filter(e => e.selected);
+  const ready = sel.filter(e => e.status === 'ready');
+  const failed = sel.filter(e => e.status === 'failed');
+  const excluded = sel.filter(e => e.status === 'excluded');
+
+  log('', 'info');
+  log('════════════════════════════════════════', 'info');
+  log('           BATCH SUMMARY', 'info');
+  log('════════════════════════════════════════', 'info');
+  log('✓ Succeeded:  ' + ready.length, 'ok');
+  if (failed.length) log('✗ Failed:     ' + failed.length, 'err');
+  if (excluded.length) log('⊘ Skipped:    ' + excluded.length, 'warn');
+  log('  Total:      ' + sel.length, 'info');
+
+  // Tier breakdown
+  if (ready.length) {
+    const tierCounts = {};
+    ready.forEach(e => {
+      const t = e.tier || 'unknown';
+      tierCounts[t] = (tierCounts[t] || 0) + 1;
+    });
+    log('', 'info');
+    log('Fetch method breakdown:', 'info');
+    for (const [t, c] of Object.entries(tierCounts)) {
+      log('  ' + t + ': ' + c, 'info');
+    }
+  }
+
+  // List failures
+  if (failed.length) {
+    log('', 'info');
+    log('Failed events:', 'err');
+    failed.forEach(e => {
+      log('  • ' + e.e.event_name, 'err');
+      if (e.detail) log('    ' + e.detail.split('\n')[0], 'err');
+    });
+  }
+
+  log('════════════════════════════════════════', 'info');
+}
+
+// ── Run control ────────────────────────────────────────────────────
+
+function getOptions() {
+  return {
+    iconSize: Number($('iconSize').value) || 25,
+    gap: Number($('gap').value) || 6,
+    titleSize: Number($('titleSize').value) || 8,
+    dateSize: Number($('dateSize').value) || 8,
+    follow: Boolean($('follow').checked),
+  };
+}
+
+async function waitWhilePaused() {
+  while (paused && !stopRequested) await sleep(100);
+}
+
+function finishRun(stopped) {
+  running = false;
+  paused = false;
+  $('start').disabled = false;
+  $('pause').disabled = true;
+  $('stop').disabled = true;
+  $('pause').textContent = 'Pause';
+  updateProgress();
+  showBatchSummary();
+  setStatus(stopped
+    ? 'Stopped. Everything already created in Figma remains there.'
+    : 'Queue finished. Every event was processed live.'
+  );
+  log(stopped ? 'DONE — stopped by user.' : 'DONE — queue finished.', stopped ? 'warn' : 'ok');
+}
+
+// ── Event handlers ─────────────────────────────────────────────────
+
+// Selection buttons
+$('all').onclick = () => { events.forEach(e => e.selected = true); renderQueue(); updateStats(); };
+$('none').onclick = () => { events.forEach(e => e.selected = false); renderQueue(); updateStats(); };
+$('failedOnly').onclick = () => { events.forEach(e => e.selected = e.status === 'failed'); renderQueue(); updateStats(); };
+
+// Refetch failed — uses all 5 tiers
+$('retryFailed').onclick = async () => {
+  if (running) { setStatus('Stop the current run before refetching failed images.'); return; }
+  const failed = events.map((e, i) => i).filter(i =>
+    events[i].status === 'failed' && events[i].e.image_url && logoNodeByIndex[i]
+  );
+  if (!failed.length) { setStatus('No retryable failed images in this session.'); return; }
+
+  setStatus('Refetching <b>' + failed.length + '</b> failed image' + (failed.length === 1 ? '' : 's') + '…');
+  log('REFETCH — ' + failed.length + ' failed images.', 'info');
+  let ok = 0;
+
+  for (const i of failed) {
+    let tier = 'unknown';
+    try {
+      // Tiers 1-3 in UI
+      const result = await getImageBytes(i, events[i].e.image_url, true);
+      await applyLogoBytes(i, result.bytes || result);
+      tier = result.tier || 'ui';
+      events[i].tier = tier;
+      setItemStatus(i, 'ready');
+      log('REFETCH OK — ' + events[i].e.event_name + ' [' + tier + ']', 'ok');
+      ok++;
+    } catch (uiErr) {
+      // Tiers 4-5 via Figma runtime
+      try {
+        const fResult = await requestFigmaImport(i, events[i].e.image_url);
+        tier = fResult.source || 'figma';
+        events[i].tier = tier;
+        setItemStatus(i, 'ready');
+        log('REFETCH OK (Figma) — ' + events[i].e.event_name + ' [' + tier + ']', 'ok');
+        ok++;
+      } catch (figmaErr) {
+        setItemStatus(i, 'failed', uiErr.message + '; ' + figmaErr.message);
+        log('REFETCH FAILED — ' + events[i].e.event_name, 'err');
+      }
+    }
+  }
+
+  setStatus('Refetch complete: <b>' + ok + '</b> fixed, <b>' + (failed.length - ok) + '</b> still failed.');
+  if (ok > 0 || failed.length > ok) showBatchSummary();
+};
+
+// Cutoff date
+$('cutoff').onchange = () => {
+  const v = $('cutoff').value;
+  if (!v) return;
+  events.forEach(e => {
+    const d = new Date(e.e.slot_start_datetime);
+    e.selected = !isNaN(d) && d <= new Date(v + 'T23:59:59');
+  });
+  renderQueue(); updateStats();
+  log('Applied cutoff ' + v + '.', 'info');
+};
+
+// Mode toggle
+$('auto').onclick = () => { mode = 'auto'; $('auto').classList.add('active'); $('manual').classList.remove('active'); };
+$('manual').onclick = () => { mode = 'manual'; $('manual').classList.add('active'); $('auto').classList.remove('active'); };
+
+// File input
+$('file').onchange = async ev => {
+  const files = [...(ev.target.files || [])];
+  if (!files.length) return;
+  if (running) { setStatus('Stop the current run before adding more files.'); return; }
+
+  let loaded = 0;
+  for (const f of files) {
+    try {
+      setStatus('Reading <b>' + esc(f.name) + '</b>…');
+      log('Reading file ' + f.name + ' (' + Math.round(f.size / 1024) + ' KB).', 'info');
+      const buf = await f.arrayBuffer();
+      let rows;
+      if (f.name.toLowerCase().endsWith('.csv') || f.name.toLowerCase().endsWith('.tsv')) {
+        rows = parseDelimited(new TextDecoder().decode(buf), f.name.toLowerCase().endsWith('.tsv') ? '\t' : ',');
+      } else {
+        rows = await parseXlsx(buf);
+      }
+      if (!rows.length) throw new Error('No event rows found. Required columns: event_name, image_url, slot_start_datetime, slot_end_datetime.');
+      rows.forEach(r => r.source_file = f.name);
+      if (!sourceFiles.includes(f.name)) sourceFiles.push(f.name);
+      loadEvents(rows, f.name);
+      loaded++;
+    } catch (err) {
+      setStatus('Could not load <b>' + esc(f.name) + '</b>: ' + esc(err.message || err));
+      log('LOAD ERROR — ' + f.name + ': ' + (err.message || err), 'err');
+    }
+  }
+
+  if (loaded) {
+    sortEventsChronologically();
+    renderQueue(); updateStats(); updateProgress();
+    setStatus(sourceFiles.length + ' file' + (sourceFiles.length === 1 ? '' : 's') + ' loaded. ' + events.length + ' events total, sorted by start date/time.');
+    log('FILES READY — ' + sourceFiles.length + ' source file' + (sourceFiles.length === 1 ? '' : 's') + ', ' + events.length + ' total events.', 'ok');
+  }
+  ev.target.value = '';
+};
+
+// Prepare session
+$('prepare').onclick = async () => {
+  if (prepared) return;
+  const selected = events.filter(e => e.selected);
+  if (!selected.length) { setStatus('Select at least one event first.'); return; }
+  const options = getOptions();
+  prepared = true;
+  post('prepare-session', { options });
+  $('start').disabled = false;
+  $('prepare').disabled = true;
+  $('reset').disabled = false;
+  processedTimes = []; // Reset ETA
+  setStatus('Session prepared for <b>' + selected.length + '</b> events. Nothing has been generated yet. Press Start.');
+  log('SESSION PREPARED — ' + selected.length + ' selected.', 'info');
+};
+
+// Start run
+$('start').onclick = async () => {
+  if (!prepared || running) return;
+  const indexes = events.map((e, i) => e.selected ? i : -1)
+    .filter(i => i >= 0 && events[i].status !== 'ready');
+  if (!indexes.length) { setStatus('Nothing left to run.'); return; }
+
+  running = true;
+  paused = false;
+  stopRequested = false;
+  $('start').disabled = true;
+  $('pause').disabled = false;
+  $('stop').disabled = false;
+  setStatus('Starting ' + (mode === 'manual' ? 'one-at-a-time' : 'automatic') + ' stream…');
+  log('START — ' + indexes.length + ' events.', 'info');
+
+  for (const i of indexes) {
+    if (stopRequested) break;
+    await waitWhilePaused();
+    if (stopRequested) break;
+    await processOne(i);
+
+    if (mode === 'manual' && !stopRequested) {
+      paused = true;
+      $('pause').textContent = 'Resume';
+      setStatus('<b>' + esc(events[i].e.event_name) + '</b> complete. Manual mode is paused — press Resume for the next event.');
+      while (paused && !stopRequested) await sleep(100);
+    }
+  }
+  finishRun(stopRequested);
+};
+
+// Pause / Resume
+$('pause').onclick = () => {
+  if (!running) return;
+  paused = !paused;
+  $('pause').textContent = paused ? 'Resume' : 'Pause';
+  log(paused ? 'PAUSED by user.' : 'RESUMED by user.', paused ? 'warn' : 'info');
+  setStatus(paused ? 'Paused. No new event will start until you resume.' : 'Resuming…');
+};
+
+// Stop
+$('stop').onclick = () => {
+  if (!running) return;
+  stopRequested = true;
+  paused = false;
+  log('STOP requested. Finishing only the current small operation.', 'warn');
+  setStatus('Stopping after the current event operation…');
+};
+
+// Reset session
+$('reset').onclick = () => {
+  if (running) return;
+  prepared = false;
+  currentIndex = -1;
+  logoNodeByIndex = {};
+  processedTimes = [];
+  post('new-session');
+  events.forEach(e => { e.status = 'queued'; e.detail = ''; e.tier = ''; });
+  $('prepare').disabled = false;
+  $('start').disabled = true;
+  $('reset').disabled = true;
+  $('pause').disabled = true;
+  $('stop').disabled = true;
+  $('bar').style.width = '0%';
+  $('count').textContent = '0 / 0';
+  $('percent').textContent = '0%';
+  $('eta').textContent = '';
+  setStatus('Session reset. Your data is still loaded.');
+  renderQueue();
+  log('SESSION RESET.', 'info');
+};
+
+// ── Health check ───────────────────────────────────────────────────
+// Pings code.js every 10s. Shows warning if Figma bridge is unresponsive.
+
+function startHealthCheck() {
+  if (healthInterval) return;
+  lastHealthOk = Date.now();
+  healthInterval = setInterval(() => {
+    post('health-check');
+    if (Date.now() - lastHealthOk > 20000) {
+      $('connStatus').textContent = '⚠ Disconnected';
+      $('connStatus').className = 'conn-warn';
+      if (running) {
+        log('HEALTH — Figma bridge unresponsive for 20+ seconds.', 'err');
+      }
+    }
+  }, 10000);
+}
+
+// General message handler (for non-request messages)
+window.addEventListener('message', ev => {
+  const m = ev.data?.pluginMessage;
+  if (!m) return;
+  if (m.type === 'health-ok') {
+    lastHealthOk = Date.now();
+    $('connStatus').textContent = '● Connected';
+    $('connStatus').className = 'conn-ok';
+  }
+});
+
+// Start health check on load
+startHealthCheck();
+
+// ── XLSX / CSV / TSV Parsers ───────────────────────────────────────
+// Self-contained, no external dependencies. Unchanged from v8.
+
+function excelDateMaybe(v) {
+  if (v === '' || v == null) return '';
+  const n = Number(v);
+  if (Number.isFinite(n) && n > 20000 && n < 80000)
+    return new Date(Date.UTC(1899, 11, 30) + n * 86400000).toISOString().slice(0, 19);
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? String(v) : d.toISOString().slice(0, 19);
+}
+
+function parseDelimited(s, sep) {
+  const lines = s.replace(/^\uFEFF/, '').split(/\r?\n/).filter(Boolean);
+  if (!lines.length) return [];
+  const rows = lines.map(line => splitCsv(line, sep));
+  const h = rows[0].map(x => x.trim());
+  return rows.slice(1).map(r => {
+    const o = {};
+    h.forEach((k, i) => o[k] = r[i] ?? '');
+    return {
+      event_name: o.event_name || '',
+      image_url: o.image_url || '',
+      slot_start_datetime: o.slot_start_datetime || '',
+      slot_end_datetime: o.slot_end_datetime || '',
+    };
+  }).filter(x => x.event_name);
+}
+
+function splitCsv(line, sep) {
+  const out = [];
+  let cur = '', q = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; continue; }
+    if (ch === '"') { q = !q; continue; }
+    if (ch === sep && !q) { out.push(cur); cur = ''; } else cur += ch;
+  }
+  out.push(cur);
+  return out;
+}
+
+async function parseXlsx(buf) {
+  const zip = new ZipReader(new Uint8Array(buf));
+  const names = zip.names();
+
+  let sheetPath = 'xl/worksheets/sheet1.xml';
+  if (names.includes('xl/workbook.xml') && names.includes('xl/_rels/workbook.xml.rels')) {
+    try {
+      const wb = xml(await zip.text('xl/workbook.xml'));
+      const rels = xml(await zip.text('xl/_rels/workbook.xml.rels'));
+      const sheet = wb.querySelector('sheets sheet');
+      const rid = sheet?.getAttribute('r:id');
+      const rel = [...rels.getElementsByTagName('Relationship')].find(x => x.getAttribute('Id') === rid);
+      if (rel) {
+        const target = rel.getAttribute('Target');
+        sheetPath = target.startsWith('/') ? target.slice(1) : ('xl/' + target.replace(/^\.?\//,''));
+      }
+    } catch (e) {}
+  }
+
+  if (!names.includes(sheetPath)) {
+    const candidate = names.find(n => /^xl\/worksheets\/sheet\d+\.xml$/.test(n));
+    if (!candidate) throw new Error('No worksheet found in the XLSX file.');
+    sheetPath = candidate;
+  }
+
+  const shared = [];
+  if (names.includes('xl/sharedStrings.xml')) {
+    const d = xml(await zip.text('xl/sharedStrings.xml'));
+    for (const si of [...d.getElementsByTagName('si')])
+      shared.push([...si.getElementsByTagName('t')].map(t => t.textContent || '').join(''));
+  }
+
+  const d = xml(await zip.text(sheetPath));
+  const out = [];
+  for (const row of [...d.getElementsByTagName('row')]) {
+    const vals = {};
+    for (const c of [...row.getElementsByTagName('c')]) {
+      const ref = c.getAttribute('r') || '';
+      const col = (ref.match(/^[A-Z]+/) || ['A'])[0];
+      const t = c.getAttribute('t');
+      const v = c.getElementsByTagName('v')[0]?.textContent ?? '';
+      let value = v;
+      if (t === 's') value = shared[Number(v)] ?? '';
+      else if (t === 'inlineStr') value = [...c.getElementsByTagName('t')].map(x => x.textContent || '').join('');
+      else if (t === 'str') value = v;
+      vals[col] = value;
+    }
+    out.push(vals);
+  }
+
+  if (!out.length) return [];
+  const headerMap = {};
+  Object.entries(out[0]).forEach(([col, val]) => headerMap[col] = String(val || '').trim());
+
+  const rows = [];
+  for (let i = 1; i < out.length; i++) {
+    const r = out[i], obj = {};
+    for (const [col, h] of Object.entries(headerMap)) obj[h] = r[col] ?? '';
+    if (obj.event_name) {
+      rows.push({
+        event_name: String(obj.event_name),
+        image_url: String(obj.image_url || ''),
+        slot_start_datetime: excelDateMaybe(obj.slot_start_datetime),
+        slot_end_datetime: excelDateMaybe(obj.slot_end_datetime),
+      });
+    }
+  }
+  return rows;
+}
+
+function xml(s) { return new DOMParser().parseFromString(s, 'application/xml'); }
+
+// ── ZipReader (self-contained, no dependencies) ────────────────────
+
+class ZipReader {
+  constructor(bytes) {
+    this.b = bytes;
+    this.entries = new Map();
+    this.parse();
+  }
+  u16(i) { return this.b[i] | (this.b[i + 1] << 8); }
+  u32(i) { return (this.b[i] | (this.b[i + 1] << 8) | (this.b[i + 2] << 16) | (this.b[i + 3] << 24)) >>> 0; }
+  parse() {
+    let p = -1;
+    for (let i = this.b.length - 22; i >= Math.max(0, this.b.length - 66000); i--) {
+      if (this.u32(i) === 0x06054b50) { p = i; break; }
+    }
+    if (p < 0) throw new Error('Invalid XLSX/ZIP file.');
+    const count = this.u16(p + 10), cdOff = this.u32(p + 16);
+    let o = cdOff;
+    for (let n = 0; n < count; n++) {
+      if (this.u32(o) !== 0x02014b50) throw new Error('Invalid ZIP central directory.');
+      const method = this.u16(o + 10), csize = this.u32(o + 20), usize = this.u32(o + 24);
+      const nl = this.u16(o + 28), xl = this.u16(o + 30), cl = this.u16(o + 32), lo = this.u32(o + 42);
+      const name = new TextDecoder().decode(this.b.slice(o + 46, o + 46 + nl));
+      this.entries.set(name, { method, csize, usize, lo });
+      o += 46 + nl + xl + cl;
+    }
+  }
+  names() { return [...this.entries.keys()]; }
+  async bytes(name) {
+    const e = this.entries.get(name);
+    if (!e) throw new Error('Missing ZIP entry ' + name);
+    const o = e.lo, nl = this.u16(o + 26), xl = this.u16(o + 28);
+    const data = this.b.slice(o + 30 + nl + xl, o + 30 + nl + xl + e.csize);
+    if (e.method === 0) return data;
+    if (e.method !== 8) throw new Error('Unsupported ZIP compression.');
+    const ds = new DecompressionStream('deflate-raw');
+    return new Uint8Array(await new Response(new Blob([data]).stream().pipeThrough(ds)).arrayBuffer());
+  }
+  async text(name) { return new TextDecoder().decode(await this.bytes(name)); }
+}
+</script>
+</body></html>
