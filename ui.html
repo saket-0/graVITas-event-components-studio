@@ -87,7 +87,10 @@ button:hover{filter:brightness(1.15)}button:disabled{opacity:.42;cursor:not-allo
   </div>
   <div class="row" style="margin-top:7px">
     <div class="grow"><label>Date px</label><input id="dateSize" type="number" value="8" min="4" max="30"></div>
-    <label class="grow" style="display:flex;gap:6px;align-items:center;margin-top:16px"><input id="follow" type="checkbox" checked> Follow current event in Figma</label>
+    <div class="grow" style="display:flex;flex-direction:column;gap:6px;margin-top:16px">
+      <label style="display:flex;gap:6px;align-items:center"><input id="follow" type="checkbox" checked> Follow current event in Figma</label>
+      <label style="display:flex;gap:6px;align-items:center" title="Uses the local fetch_images.py server on port 8000 to bypass all download errors"><input id="localServer" type="checkbox" checked> Use Local Image Server</label>
+    </div>
   </div>
 </div>
 
@@ -490,7 +493,30 @@ async function resolveHtmlPageToImage(url) {
 // Note: Google Drive and HTML pages (Postimg, Kommodo) are resolved to
 // direct image URLs BEFORE entering the tiers.
 
-async function fetchImageBytesSmart(originalUrl) {
+async function fetchImageBytesSmart(originalUrl, eventName) {
+  const useLocal = document.getElementById('localServer')?.checked;
+  if (useLocal && eventName) {
+    const safeName = String(eventName).replace(/[<>:"/\\|?*]/g, '_').trim();
+    const exts = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp'];
+    for (const ext of exts) {
+      try {
+        const localUrl = `http://localhost:8000/${encodeURIComponent(safeName)}${ext}`;
+        const r = await fetch(localUrl, { mode: 'cors', redirect: 'follow', cache: 'no-store' });
+        if (r.ok) {
+          const ct = (r.headers.get('content-type') || '').toLowerCase();
+          if (ct.startsWith('image/')) {
+             const bytes = await normalizeImageBytes(new Uint8Array(await r.arrayBuffer()), ct);
+             log('Fetched ' + safeName + ext + ' from local server', 'info');
+             return { bytes, tier: 'local-server', attempt: 1 };
+          }
+        }
+      } catch (e) {
+        // Ignore errors and try next extension
+      }
+    }
+    log('Local server fetch failed for ' + eventName + ', falling back to internet.', 'warn');
+  }
+
   let url = String(originalUrl).trim();
 
   // --- PRE-PROCESSING / URL NORMALIZATION ---
@@ -569,7 +595,8 @@ async function getImageBytes(i, url, force) {
   if (!force && imageCache.has(url)) return imageCache.get(url);
   if (!force && imageInflight.has(url)) return imageInflight.get(url);
 
-  const promise = fetchImageBytesSmart(url);
+  const eventName = events[i]?.e?.event_name || '';
+  const promise = fetchImageBytesSmart(url, eventName);
   imageInflight.set(url, promise);
   try {
     const result = await promise;
