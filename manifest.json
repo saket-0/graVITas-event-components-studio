@@ -17,7 +17,9 @@
       "https://corsproxy.io",
       "https://api.codetabs.com",
       "https://kommodo.ai",
-      "https://*.komododecks.com"
+      "https://*.komododecks.com",
+      "http://localhost:8000",
+      "http://127.0.0.1:8000"
     ],
     "reasoning": "Downloads event logos from URLs supplied in user-selected Excel files. Uses weserv.nl as a CORS proxy fallback, and generic CORS proxies to scrape HTML pages for og:image tags."
   }
