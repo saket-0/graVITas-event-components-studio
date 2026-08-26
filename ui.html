@@ -86,6 +86,7 @@ button:hover{filter:brightness(1.15)}button:disabled{opacity:.42;cursor:not-allo
     <div><label>Title px</label><input id="titleSize" type="number" value="8" min="4" max="30"></div>
   </div>
   <div class="row" style="margin-top:7px">
+    <div class="grow"><label>Date px</label><input id="dateSize" type="number" value="8" min="4" max="30"></div>
     <div class="grow" style="display:flex;flex-direction:column;gap:6px;margin-top:16px">
       <label style="display:flex;gap:6px;align-items:center"><input id="follow" type="checkbox" checked> Follow current event in Figma</label>
       <div style="margin-top:8px; display:flex; flex-direction:column; gap:4px">
@@ -513,9 +514,11 @@ async function fetchImageBytesSmart(originalUrl, eventName) {
         }
       }
     }
+    // If it reaches here while a local folder is selected, it's missing. No fallback.
+    throw new Error('Image not found in local offline folder.');
   }
 
-  // If local folder selection failed or was not provided, fall back to internet
+  // If NO local folder was selected, use the internet fallback
   const url = String(originalUrl || '').trim();
   if (!url || url === 'undefined' || url === 'null') {
     throw new Error('No URL provided');
