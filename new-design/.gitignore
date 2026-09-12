@@ -1,3 +1,5 @@
 downloads/
 .DS_Store
 __pycache__/
+
+downloads_offline/

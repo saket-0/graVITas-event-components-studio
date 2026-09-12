@@ -140,8 +140,9 @@ async function createMaster(options) {
   const master = figma.createComponent();
   master.name = 'EVENT COMPONENT — MASTER';
   master.layoutMode = 'HORIZONTAL';
-  master.primaryAxisSizingMode = 'AUTO';
-  master.counterAxisSizingMode = 'AUTO';
+  master.primaryAxisSizingMode = 'FIXED';
+  master.counterAxisSizingMode = 'FIXED';
+  master.resize(1912, 484);
   master.itemSpacing = 52;
   master.paddingTop = 53; master.paddingRight = 53;
   master.paddingBottom = 53; master.paddingLeft = 53;
