@@ -61,10 +61,10 @@ let fontsWarmed = false;
 async function warmFonts() {
   if (fontsWarmed) return;
   await Promise.all([
-    figma.loadFontAsync({ family: 'Inter', style: 'Medium' }),
-    figma.loadFontAsync({ family: 'Inter', style: 'Regular' }),
-    figma.loadFontAsync({ family: 'Inter', style: 'Bold' }),
-    figma.loadFontAsync({ family: 'Inter', style: 'Extra Bold' }),
+    figma.loadFontAsync({ family: 'Montserrat', style: 'Medium' }),
+    figma.loadFontAsync({ family: 'Montserrat', style: 'Regular' }),
+    figma.loadFontAsync({ family: 'Montserrat', style: 'Bold' }),
+    figma.loadFontAsync({ family: 'Montserrat', style: 'Extra Bold' }),
   ]);
   fontsWarmed = true;
 }
@@ -73,7 +73,7 @@ async function makeText(parent, chars, size, color, weight) {
   await warmFonts();
   const n = figma.createText();
   parent.appendChild(n);
-  n.fontName = { family: 'Inter', style: weight };
+  n.fontName = { family: 'Montserrat', style: weight };
   n.fontSize = size;
   n.characters = String(chars || '').trim();
   n.fills = [solid(color)];
@@ -129,18 +129,17 @@ async function createMaster(options) {
   const master = figma.createComponent();
   master.name = 'EVENT COMPONENT — MASTER';
   master.layoutMode = 'HORIZONTAL';
-  master.primaryAxisSizingMode = 'FIXED';
+  master.primaryAxisSizingMode = 'AUTO';
   master.counterAxisSizingMode = 'AUTO';
-  master.resize(1600, 100);
-  master.itemSpacing = 41.44;
-  master.paddingTop = 37.7; master.paddingRight = 43.08;
-  master.paddingBottom = 37.7; master.paddingLeft = 43.08;
+  master.itemSpacing = 52;
+  master.paddingTop = 53; master.paddingRight = 53;
+  master.paddingBottom = 53; master.paddingLeft = 53;
   master.primaryAxisAlignItems = 'MIN';
   master.counterAxisAlignItems = 'CENTER';
 
   master.fills = [solid('#241D27', 0.28)];
   master.strokes = [];
-  master.cornerRadius = 24.86;
+  master.cornerRadius = 28;
   master.clipsContent = false;
   
   master.effects = [{
@@ -153,19 +152,38 @@ async function createMaster(options) {
   master.setPluginData('role', 'master');
   master.setPluginData('generator', 'gravitas-event-components-studio-v10');
 
+  // Logo placeholder rectangle
+  const logo = figma.createRectangle();
+  master.appendChild(logo);
+  logo.name = 'Event Logo';
+  logo.resize(245, 245);
+  logo.cornerRadius = 20;
+  logo.fills = [solid('#000000', 0.10)];
+  logo.strokes = [];
+  logo.setPluginData('role', 'logo');
+
+  // Right Panel (Vertical)
+  const rightPanel = figma.createFrame();
+  master.appendChild(rightPanel);
+  rightPanel.name = 'Right Panel';
+  rightPanel.layoutMode = 'VERTICAL';
+  rightPanel.primaryAxisSizingMode = 'AUTO';
+  rightPanel.counterAxisSizingMode = 'AUTO';
+  rightPanel.itemSpacing = 24;
+  rightPanel.fills = [];
+
   // Date Section (Horizontal)
   const dateGroup = figma.createFrame();
-  master.appendChild(dateGroup);
+  rightPanel.appendChild(dateGroup);
   dateGroup.name = 'Date Group';
   dateGroup.layoutMode = 'HORIZONTAL';
-  dateGroup.primaryAxisSizingMode = 'FIXED';
+  dateGroup.primaryAxisSizingMode = 'AUTO';
   dateGroup.counterAxisSizingMode = 'AUTO';
-  dateGroup.resize(280, 100);
   dateGroup.itemSpacing = 16;
   dateGroup.fills = [];
   dateGroup.counterAxisAlignItems = 'CENTER';
 
-  const bigDay = await makeText(dateGroup, '05', 120, '#FFFFFF', 'Extra Bold');
+  const bigDay = await makeText(dateGroup, '27', 96, '#FFFFFF', 'Extra Bold');
   bigDay.name = 'Day Number';
   
   const monthDayGroup = figma.createFrame();
@@ -174,36 +192,33 @@ async function createMaster(options) {
   monthDayGroup.layoutMode = 'VERTICAL';
   monthDayGroup.primaryAxisSizingMode = 'AUTO';
   monthDayGroup.counterAxisSizingMode = 'AUTO';
-  monthDayGroup.itemSpacing = -10; // Tight stacking
+  monthDayGroup.itemSpacing = -8; 
   monthDayGroup.fills = [];
 
-  const monthText = await makeText(monthDayGroup, 'SEP', 50, '#7C3AED', 'Extra Bold');
+  const monthText = await makeText(monthDayGroup, 'AUG', 36, '#653EBE', 'Extra Bold');
   monthText.name = 'Month Name';
-  const weekdayText = await makeText(monthDayGroup, 'SAT', 50, '#FFFFFF', 'Medium');
+  const weekdayText = await makeText(monthDayGroup, 'THU', 36, '#FFFFFF', 'Medium');
   weekdayText.name = 'Weekday';
 
-  // Separator
-  const separator = figma.createRectangle();
-  master.appendChild(separator);
-  separator.name = 'Separator';
-  separator.resize(4, 140);
-  separator.cornerRadius = 2;
-  separator.fills = [solid('#7C3AED', 1)];
-
-  // Logo placeholder rectangle
-  const logo = figma.createRectangle();
-  master.appendChild(logo);
-  logo.name = 'Event Logo';
-  logo.resize(190, 190);
-  logo.cornerRadius = 20;
-  logo.fills = [solid('#FFFFFF', 0.10)];
-  logo.strokes = [];
-  logo.setPluginData('role', 'logo');
+  // Title Group
+  const titleGroup = figma.createFrame();
+  rightPanel.appendChild(titleGroup);
+  titleGroup.name = 'Title Group';
+  titleGroup.layoutMode = 'VERTICAL';
+  titleGroup.primaryAxisSizingMode = 'AUTO';
+  titleGroup.counterAxisSizingMode = 'AUTO';
+  titleGroup.itemSpacing = 8;
+  titleGroup.fills = [];
 
   // Event Title
-  const title = await makeText(master, 'EVENT NAME', 80, '#FFFFFF', 'Bold');
+  const title = await makeText(titleGroup, 'AgentXcelerate', 72, '#FFFFFF', 'Bold');
   title.name = 'Event Name';
   title.layoutAlign = 'INHERIT';
+  
+  // Venue
+  const venue = await makeText(titleGroup, 'PRP 539, Homi Baba Gallery', 48, '#653EBE', 'Bold');
+  venue.name = 'Venue';
+  venue.layoutAlign = 'INHERIT';
   
   masterId = master.id;
   return master;
@@ -224,8 +239,12 @@ async function createEventInstance(e, options, index) {
   instance.x = 12;
   instance.y = nextY;
 
-  const title = findChild(instance, 'Event Name', 'TEXT');
-  const dateGroup = findChild(instance, 'Date Group', 'FRAME');
+  const rightPanel = findChild(instance, 'Right Panel', 'FRAME');
+  if (!rightPanel) throw new Error('Missing Right Panel in master.');
+  const titleGroup = findChild(rightPanel, 'Title Group', 'FRAME');
+  const title = findChild(titleGroup, 'Event Name', 'TEXT');
+  const venue = findChild(titleGroup, 'Venue', 'TEXT');
+  const dateGroup = findChild(rightPanel, 'Date Group', 'FRAME');
   if (!dateGroup) throw new Error('Missing Date Group in master.');
   const bigDay = findChild(dateGroup, 'Day Number', 'TEXT');
   const monthDayGroup = findChild(dateGroup, 'Month Day Group', 'FRAME');
@@ -233,13 +252,14 @@ async function createEventInstance(e, options, index) {
   const weekdayText = findChild(monthDayGroup, 'Weekday', 'TEXT');
   const logo  = findChild(instance, 'Event Logo', 'RECTANGLE');
   
-  if (!title || !bigDay || !monthText || !weekdayText || !logo) {
+  if (!title || !venue || !bigDay || !monthText || !weekdayText || !logo) {
     throw new Error('Master component structure is incomplete.');
   }
 
   await warmFonts(); 
 
   title.characters = String(e.event_name || '').replace(/\s+/g, ' ').trim();
+  venue.characters = String(e.venue_alloted || '').replace(/\s+/g, ' ').trim();
   const dateParts = parseDateParts(e.slot_start_datetime);
   bigDay.characters = dateParts.day;
   monthText.characters = dateParts.month;
