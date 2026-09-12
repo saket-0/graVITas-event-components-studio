@@ -60,12 +60,23 @@ let fontsWarmed = false;
 
 async function warmFonts() {
   if (fontsWarmed) return;
-  await Promise.all([
-    figma.loadFontAsync({ family: 'Montserrat', style: 'Medium' }),
-    figma.loadFontAsync({ family: 'Montserrat', style: 'Regular' }),
-    figma.loadFontAsync({ family: 'Montserrat', style: 'Bold' }),
-    figma.loadFontAsync({ family: 'Montserrat', style: 'Extra Bold' }),
-  ]);
+  try {
+    await Promise.all([
+      figma.loadFontAsync({ family: 'Montserrat', style: 'Medium' }),
+      figma.loadFontAsync({ family: 'Montserrat', style: 'Regular' }),
+      figma.loadFontAsync({ family: 'Montserrat', style: 'Bold' }),
+      figma.loadFontAsync({ family: 'Montserrat', style: 'ExtraBold' }),
+    ]);
+  } catch (err) {
+    console.error('Failed to load Montserrat fonts:', err);
+    // Fallback if Montserrat is missing
+    await Promise.all([
+      figma.loadFontAsync({ family: 'Inter', style: 'Medium' }),
+      figma.loadFontAsync({ family: 'Inter', style: 'Regular' }),
+      figma.loadFontAsync({ family: 'Inter', style: 'Bold' }),
+      figma.loadFontAsync({ family: 'Inter', style: 'Extra Bold' }),
+    ]);
+  }
   fontsWarmed = true;
 }
 
@@ -183,7 +194,7 @@ async function createMaster(options) {
   dateGroup.fills = [];
   dateGroup.counterAxisAlignItems = 'CENTER';
 
-  const bigDay = await makeText(dateGroup, '27', 96, '#FFFFFF', 'Extra Bold');
+  const bigDay = await makeText(dateGroup, '27', 96, '#FFFFFF', 'ExtraBold');
   bigDay.name = 'Day Number';
   
   const monthDayGroup = figma.createFrame();
@@ -195,7 +206,7 @@ async function createMaster(options) {
   monthDayGroup.itemSpacing = -8; 
   monthDayGroup.fills = [];
 
-  const monthText = await makeText(monthDayGroup, 'AUG', 36, '#653EBE', 'Extra Bold');
+  const monthText = await makeText(monthDayGroup, 'AUG', 36, '#653EBE', 'ExtraBold');
   monthText.name = 'Month Name';
   const weekdayText = await makeText(monthDayGroup, 'THU', 36, '#FFFFFF', 'Medium');
   weekdayText.name = 'Weekday';
